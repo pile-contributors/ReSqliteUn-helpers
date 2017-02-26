@@ -32,6 +32,8 @@ add_executable(test_basic
     ../sqlite/sqlite3.c
     basic.cc)
 
+message(STATUS "RESQLITEUN_SOURCES = ${RESQLITEUN_SOURCES}")
+
 if (UNIX)
     find_package(Threads REQUIRED)
     list(APPEND GTEST_BOTH_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
