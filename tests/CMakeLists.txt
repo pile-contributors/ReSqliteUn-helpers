@@ -14,15 +14,22 @@
 # ============================================================================
 
 find_package(GTest REQUIRED)
-include_directories(${GTEST_INCLUDE_DIRS})
+
+find_package(ICU 58 REQUIRED
+    COMPONENTS uc i18n dt)
+
+include_directories(${GTEST_INCLUDE_DIRS} ${ICU_INCLUDE_DIRS})
 
 if (NOT INCLUDE_PILE_SOURCES_DIRECTLY)
     set (RESQLITEUN_LIBRARY resqliteun)
+else()
+    unset (RESQLITEUN_LIBRARY CACHE)
 endif()
 
 add_executable(test_basic
     ${RESQLITEUN_SOURCES}
     ${RESQLITEUN_HEADERS}
+    ../sqlite/sqlite3.c
     basic.cc)
 
 if (UNIX)
@@ -32,8 +39,13 @@ if (UNIX)
 endif()
 
 target_link_libraries(test_basic
+    ${RESQLITEUN_LIBRARY}
     ${GTEST_BOTH_LIBRARIES}
-    ${RESQLITEUN_LIBRARY})
+    ${ICU_UC_LIBRARIES}
+    ${ICU_I18N_LIBRARIES}
+    ${ICU_DT_LIBRARIES})
+
+qt5_use_modules(test_basic Core Sql)
 
 add_test(
     NAME test_basic
