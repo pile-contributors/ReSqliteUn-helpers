@@ -32,6 +32,10 @@
 #   define RESQUN_FUN_REDO     "redo"
 #   define RESQUN_FUN_UNDO     "undo"
 #   define RESQUN_TBL_TEMP     "_sqlite_undo"
+#   define RESQUN_SVP_BEGI     "_sqlite_undo_undoable"
+#   define RESQUN_SVP_UNDO     "_sqlite_undo_undo"
+#   define RESQUN_MARK_UNDO    "'U'"
+#   define RESQUN_MARK_REDO    "'R'"
 #endif
 
 #include <gtest/gtest.h>
@@ -221,15 +225,15 @@ public:
         if (statem == NULL) {
             statem = locbuf;
         }
-        sqlite3_stmt *res;
+        sqlite3_stmt *stmt;
         int rc;
-        rc = sqlite3_prepare_v2 (db, statem, -1, &res, 0);
+        rc = sqlite3_prepare_v2 (db, statem, -1, &stmt, 0);
         if (rc != SQLITE_OK) {
             fprintf(stderr, "Failed to fetch data: %s\n", sqlite3_errmsg(db));
         }
         EXPECT_TRUE(rc == SQLITE_OK);
-        EXPECT_TRUE(res != NULL);
-        return res;
+        EXPECT_TRUE(stmt != NULL);
+        return stmt;
     }
 
     //! Execute a command.
@@ -237,13 +241,13 @@ public:
         if (statem == NULL) {
             statem = locbuf;
         }
-        sqlite3_stmt *res = prepare (statem);
+        sqlite3_stmt *stmt = prepare (statem);
         fprintf(stderr, "%s\n", statem);
 
-        int rc = sqlite3_step (res);
+        int rc = sqlite3_step (stmt);
         ASSERT_EQ(rc, SQLITE_DONE);
 
-        rc = sqlite3_finalize (res);
+        rc = sqlite3_finalize (stmt);
         ASSERT_EQ(rc, SQLITE_OK);
     }
 
@@ -252,20 +256,76 @@ public:
         if (statem == NULL) {
             statem = locbuf;
         }
-        sqlite3_stmt *res = prepare (statem);
+        sqlite3_stmt *stmt = prepare (statem);
         fprintf(stderr, "%s\n", statem);
 
-        int rc = sqlite3_step (res);
+        int rc = sqlite3_step (stmt);
         if (rc == SQLITE_ERROR) {
             fprintf(stderr, "Error in execute_r: %s\n", sqlite3_errmsg (db));
         }
         ASSERT_EQ(rc, SQLITE_ROW);
 
         PrintAllData pad;
-        pad.print_result (res);
+        pad.print_result (stmt);
 
-        rc = sqlite3_finalize (res);
+        rc = sqlite3_finalize (stmt);
         ASSERT_EQ(rc, SQLITE_OK);
+    }
+
+    //! Execute a command that returns an integer.
+    int execute_get_int (const char * statem = NULL) {
+        if (statem == NULL) {
+            statem = locbuf;
+        }
+        sqlite3_stmt *stmt = prepare (statem);
+        fprintf(stderr, "%s\n", statem);
+
+        int rc = sqlite3_step (stmt);
+        if (rc == SQLITE_ERROR) {
+            fprintf(stderr, "Error in execute_get_int: %s\n", sqlite3_errmsg (db));
+        }
+        EXPECT_EQ(rc, SQLITE_ROW);
+
+        int result = sqlite3_column_int(stmt, 0);
+        rc = sqlite3_step (stmt);
+        EXPECT_EQ(rc, SQLITE_DONE);
+
+        rc = sqlite3_finalize (stmt);
+        EXPECT_EQ(rc, SQLITE_OK);
+
+        return result;
+    }
+
+    //! Get the number of records in a table.
+    int execute_get_count (const char * table) {
+        sprintf(locbuf, "SELECT COUNT(*) FROM %s;\n", table);
+        fprintf(stderr, "%s\n", locbuf);
+
+        return execute_get_int ();
+    }
+
+    //! Execute a command that returns a string.
+    QString execute_get_str (const char * statem = NULL) {
+        if (statem == NULL) {
+            statem = locbuf;
+        }
+        sqlite3_stmt *stmt = prepare (statem);
+        fprintf(stderr, "%s\n", statem);
+
+        int rc = sqlite3_step (stmt);
+        if (rc == SQLITE_ERROR) {
+            fprintf(stderr, "Error in execute_get_str: %s\n", sqlite3_errmsg (db));
+        }
+        EXPECT_EQ(rc, SQLITE_ROW);
+
+        QString result = ReSqliteUn::columnText (stmt, 0);
+        rc = sqlite3_step (stmt);
+        EXPECT_EQ(rc, SQLITE_DONE);
+
+        rc = sqlite3_finalize (stmt);
+        EXPECT_EQ(rc, SQLITE_OK);
+
+        return result;
     }
 
     //! Prints all the rows in a table.
@@ -414,10 +474,21 @@ TEST_F(TestUsage, sqlite_test) {
 /* ------------------------------------------------------------------------- */
 TEST_F(TestWithTable, sqlite_test) {
     attach_to_table("Test", 2);
+
+    EXPECT_EQ(execute_get_int("SELECT " RESQUN_FUN_ACTIVE "();"), 0);
+    EXPECT_EQ(execute_get_count("Test"), 0);
+
     command_begin ();
+    EXPECT_EQ(execute_get_int("SELECT " RESQUN_FUN_ACTIVE "();"), 1);
     execute ("INSERT INTO Test(data, data1) VALUES('Hello', 'World');\n");
+    EXPECT_EQ(execute_get_count("Test"), 1);
     execute ("INSERT INTO Test(data, data1) VALUES('Goodbye', 'Sky');\n");
+    EXPECT_EQ(execute_get_count("Test"), 2);
+    EXPECT_EQ(execute_get_int("SELECT " RESQUN_FUN_ACTIVE "();"), 1);
     command_end ();
+    EXPECT_EQ(execute_get_count("Test"), 2);
+
+    EXPECT_EQ(execute_get_int("SELECT " RESQUN_FUN_ACTIVE "();"), 0);
 
     execute_r("PRAGMA table_info(Test)");
 
@@ -425,15 +496,18 @@ TEST_F(TestWithTable, sqlite_test) {
     printAll(RESQUN_TBL_TEMP);
 
     command_undo();
+    EXPECT_EQ(execute_get_count("Test"), 0);
 
     printAll("Test");
     printAll(RESQUN_TBL_TEMP);
 
     command_redo();
+    EXPECT_EQ(execute_get_count("Test"), 2);
 
     printAll("Test");
     printAll(RESQUN_TBL_TEMP);
 
+    EXPECT_EQ(execute_get_int("SELECT " RESQUN_FUN_ACTIVE "();"), 0);
 
     /*
     This is the example given at:
