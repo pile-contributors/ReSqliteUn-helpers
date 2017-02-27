@@ -24,7 +24,7 @@
 
 // These are the names as defined by the
 // https://sourceforge.net/p/sqlite-undo/code/HEAD/tree/
-#if 1
+#if 0
 #   define RESQUN_FUN_TABLE    "undoable_table"
 #   define RESQUN_FUN_ACTIVE   "undoable_active"
 #   define RESQUN_FUN_BEGIN    "undoable_begin"
@@ -83,7 +83,7 @@ struct PrintAllData {
             printf(line);
             printf("|  Row  |");
             for (i=0; i<argc; ++i) {
-                printf("%40s |", colName[i]);
+                printf("%20s |", colName[i]);
             }
             printf(line);
         }
@@ -91,7 +91,7 @@ struct PrintAllData {
         printf("| %5i |", row_number+1);
 
         for (i=0; i<argc; i++) {
-            printf("%40s |", argv[i] ? argv[i] : "NULL");
+            printf("%20s |", argv[i] ? argv[i] : "NULL");
         }
         printf("\n");
         ++row_number;
@@ -109,7 +109,7 @@ struct PrintAllData {
             printf(line);
             printf("|  Row  |");
             for (i=0; i<columns; ++i) {
-                printf("%40s |", sqlite3_column_name(stmt, i));
+                printf("%20s |", sqlite3_column_name(stmt, i));
             }
             printf(line);
         }
@@ -122,7 +122,7 @@ struct PrintAllData {
                 ++row_number;
                 printf("| %5i |", row_number);
                 for (i=0; i<columns; i++) {
-                    printf("%40s |", sqlite3_column_text(stmt, i));
+                    printf("%20s |", sqlite3_column_text(stmt, i));
                 }
                 printf("\n");
             } else if (retval == SQLITE_DONE) {
@@ -256,6 +256,9 @@ public:
         fprintf(stderr, "%s\n", statem);
 
         int rc = sqlite3_step (res);
+        if (rc == SQLITE_ERROR) {
+            fprintf(stderr, "Error in execute_r: %s\n", sqlite3_errmsg (db));
+        }
         ASSERT_EQ(rc, SQLITE_ROW);
 
         PrintAllData pad;
@@ -410,11 +413,13 @@ TEST_F(TestUsage, sqlite_test) {
 
 /* ------------------------------------------------------------------------- */
 TEST_F(TestWithTable, sqlite_test) {
-    attach_to_table("Test", 1);
+    attach_to_table("Test", 2);
     command_begin ();
     execute ("INSERT INTO Test(data, data1) VALUES('Hello', 'World');\n");
     execute ("INSERT INTO Test(data, data1) VALUES('Goodbye', 'Sky');\n");
     command_end ();
+
+    execute_r("PRAGMA table_info(Test)");
 
     printAll("Test");
     printAll(RESQUN_TBL_TEMP);
