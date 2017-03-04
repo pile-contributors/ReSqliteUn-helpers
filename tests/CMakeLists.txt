@@ -29,8 +29,15 @@ endif()
 add_executable(test_basic
     ${RESQLITEUN_SOURCES}
     ${RESQLITEUN_HEADERS}
+
     ../sqlite/sqlite3.c
-    basic.cc)
+    print_helpers.cc
+    helper_usage.cc
+    helper_with_table.cc
+    helper_multiple_usage.cc
+
+    unit/sql_interface.cc
+    unit/binary_interface.cc)
 
 message(STATUS "RESQLITEUN_SOURCES = ${RESQLITEUN_SOURCES}")
 
