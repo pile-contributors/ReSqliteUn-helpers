@@ -49,6 +49,12 @@
 char buffloc[512];
 #define locbuf &buffloc[0]
 
+//! General switch for table printing.
+#define PRINT_TABLES
+
+//! General switch for statement printing.
+#define PRINT_STATEMENTS
+
 /*  INCLUDES    ============================================================ */
 //
 //
@@ -73,14 +79,17 @@ struct PrintAllData {
 
     //! Call at the end to print the statistics.
     void end () {
+#     ifdef PRINT_TABLES
         printf(line+1);
         printf("      Total: %i rows, %i columns\n", row_number, columns);
         printf(line2);
+#     endif // PRINT_TABLES
     }
 
     //! Called on each record by the callback mechanism.
     int print_record (int argc, char **argv, char **colName)
     {
+#     ifdef PRINT_TABLES
         int i;
         if (row_number == 0) {
             columns = argc;
@@ -99,12 +108,14 @@ struct PrintAllData {
         }
         printf("\n");
         ++row_number;
+#     endif // PRINT_TABLES
         return 0;
     }
 
     //! Prints everything in the result.
     void print_result (sqlite3_stmt *stmt)
     {
+#     ifdef PRINT_TABLES
         if (columns == 0) {
             columns = sqlite3_column_count (stmt);
         }
@@ -140,6 +151,7 @@ struct PrintAllData {
         }
 
         end ();
+#     endif // PRINT_TABLES
     }
 }; // struct PrintAllData
 
@@ -157,6 +169,15 @@ extern "C" {
         PrintAllData * pad = static_cast<PrintAllData *>(arg);
         return pad->print_record(argc, argv, colName);
     }
+}
+/* ========================================================================= */
+
+/* ------------------------------------------------------------------------- */
+void printStatement (const char * value)
+{
+#  ifdef PRINT_STATEMENTS
+    fprintf(stderr, "%s\n", value);
+#  endif // PRINT_TABLES
 }
 /* ========================================================================= */
 
@@ -242,7 +263,7 @@ public:
             statem = locbuf;
         }
         sqlite3_stmt *stmt = prepare (statem);
-        fprintf(stderr, "%s\n", statem);
+        printStatement (statem);
 
         int rc = sqlite3_step (stmt);
         ASSERT_EQ(rc, SQLITE_DONE);
@@ -257,7 +278,7 @@ public:
             statem = locbuf;
         }
         sqlite3_stmt *stmt = prepare (statem);
-        fprintf(stderr, "%s\n", statem);
+        printStatement (statem);
 
         int rc = sqlite3_step (stmt);
         if (rc == SQLITE_ERROR) {
@@ -278,7 +299,7 @@ public:
             statem = locbuf;
         }
         sqlite3_stmt *stmt = prepare (statem);
-        fprintf(stderr, "%s\n", statem);
+        printStatement (statem);
 
         int rc = sqlite3_step (stmt);
         if (rc == SQLITE_ERROR) {
@@ -299,7 +320,7 @@ public:
     //! Get the number of records in a table.
     int execute_get_count (const char * table) {
         sprintf(locbuf, "SELECT COUNT(*) FROM %s;\n", table);
-        fprintf(stderr, "%s\n", locbuf);
+        printStatement (locbuf);
 
         return execute_get_int ();
     }
@@ -310,7 +331,7 @@ public:
             statem = locbuf;
         }
         sqlite3_stmt *stmt = prepare (statem);
-        fprintf(stderr, "%s\n", statem);
+        printStatement (statem);
 
         int rc = sqlite3_step (stmt);
         if (rc == SQLITE_ERROR) {
@@ -332,7 +353,7 @@ public:
     void printAll (const char * table) {
         PrintAllData pad;
         sprintf(locbuf, "SELECT * FROM %s;\n", table);
-        fprintf(stderr, "%s\n", locbuf);
+        printStatement (locbuf);
 
         char *errmsg;
         /*int rc = */sqlite3_exec(
