@@ -25,6 +25,8 @@
 #include "helper_with_table.h"
 #include "print_helpers.h"
 
+#include <QDateTime>
+
 /*  INCLUDES    ============================================================ */
 //
 //
@@ -47,6 +49,16 @@ void TestWithTable::SetUp ()
         create_table ("Test");
         break;
     }
+}
+/* ========================================================================= */
+
+/* ------------------------------------------------------------------------- */
+void TestWithTable::command_begin()
+{
+    QString command = QString("SELECT " RESQUN_FUN_BEGIN "('%1')")
+            .arg (QDateTime::currentDateTime ().toString (Qt::ISODate));
+    sprintf(locbuf (), "%s\n", command.toUtf8().constData());
+    execute_r (locbuf ());
 }
 /* ========================================================================= */
 

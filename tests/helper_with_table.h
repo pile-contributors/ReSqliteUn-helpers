@@ -91,11 +91,7 @@ public:
     }
 
     //!
-    void command_begin () {
-        sprintf(locbuf (), "SELECT %s();\n",
-                RESQUN_FUN_BEGIN);
-        execute_r (locbuf ());
-    }
+    void command_begin ();
 
     //!
     void command_end () {

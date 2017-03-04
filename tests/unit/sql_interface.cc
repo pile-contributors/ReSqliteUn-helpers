@@ -119,7 +119,10 @@ TEST_F(TestWithTable, active_test) {
 /* ========================================================================= */
 
 /* ------------------------------------------------------------------------- */
-TEST_F(TestWithTable, sqlite_test) {
+TEST_F(TestWithTable, undo_redo) {
+    execute_r("PRAGMA table_info(" RESQUN_TBL_IDX ")");
+    execute_r("PRAGMA table_info(" RESQUN_TBL_TEMP ")");
+
     attach_to_table("Test", 2);
 
     EXPECT_EQ(execute_get_count("Test"), 0);
@@ -136,6 +139,7 @@ TEST_F(TestWithTable, sqlite_test) {
     EXPECT_EQ(execute_get_count("Test"), 2);
 
     printAll("Test");
+    printAll(RESQUN_TBL_IDX);
     printAll(RESQUN_TBL_TEMP);
 
     command_undo();
@@ -152,6 +156,70 @@ TEST_F(TestWithTable, sqlite_test) {
 }
 /* ========================================================================= */
 
+/* ------------------------------------------------------------------------- */
+TEST_F(TestWithTable, undo_redo_overwrite) {
+    execute_r("PRAGMA table_info(" RESQUN_TBL_IDX ")");
+    execute_r("PRAGMA table_info(" RESQUN_TBL_TEMP ")");
+
+    attach_to_table("Test", 2);
+
+    command_begin ();
+    execute ("INSERT INTO Test(data, data1) VALUES('Hello', '1');\n");
+    execute ("INSERT INTO Test(data, data1) VALUES('Goodbye', '1');\n");
+    command_end ();
+
+    command_begin ();
+    execute ("INSERT INTO Test(data, data1) VALUES('Hello', '2');\n");
+    execute ("INSERT INTO Test(data, data1) VALUES('Goodbye', '2');\n");
+    command_end ();
+
+    command_begin ();
+    execute ("INSERT INTO Test(data, data1) VALUES('Hello', '3');\n");
+    execute ("INSERT INTO Test(data, data1) VALUES('Goodbye', '3');\n");
+    command_end ();
+
+    EXPECT_EQ(execute_get_count("Test"), 6);
+    EXPECT_EQ(execute_get_count(RESQUN_TBL_IDX), 3);
+    EXPECT_EQ(execute_get_count(RESQUN_TBL_TEMP), 6);
+
+    command_undo();
+
+    EXPECT_EQ(execute_get_count("Test"), 4);
+    EXPECT_EQ(execute_get_count(RESQUN_TBL_IDX), 3);
+    EXPECT_EQ(execute_get_count(RESQUN_TBL_TEMP), 6);
+
+    command_undo();
+
+    EXPECT_EQ(execute_get_count("Test"), 2);
+    EXPECT_EQ(execute_get_count(RESQUN_TBL_IDX), 3);
+    EXPECT_EQ(execute_get_count(RESQUN_TBL_TEMP), 6);
+
+    command_undo();
+
+    EXPECT_EQ(execute_get_count("Test"), 0);
+    EXPECT_EQ(execute_get_count(RESQUN_TBL_IDX), 3);
+    EXPECT_EQ(execute_get_count(RESQUN_TBL_TEMP), 6);
+
+    command_redo();
+
+    EXPECT_EQ(execute_get_count("Test"), 2);
+    EXPECT_EQ(execute_get_count(RESQUN_TBL_IDX), 3);
+    EXPECT_EQ(execute_get_count(RESQUN_TBL_TEMP), 6);
+
+    command_begin ();
+    execute ("INSERT INTO Test(data, data1) VALUES('Hello', '4');\n");
+    execute ("INSERT INTO Test(data, data1) VALUES('Goodbye', '4');\n");
+    command_end ();
+
+    EXPECT_EQ(execute_get_count("Test"), 4);
+    EXPECT_EQ(execute_get_count(RESQUN_TBL_IDX), 2);
+    EXPECT_EQ(execute_get_count(RESQUN_TBL_TEMP), 4);
+
+    printAll("Test");
+    printAll(RESQUN_TBL_IDX);
+    printAll(RESQUN_TBL_TEMP);
+}
+/* ========================================================================= */
 
 /*  TESTS    =============================================================== */
 //
